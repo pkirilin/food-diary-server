@@ -37,11 +37,13 @@ namespace FoodDiary.API
                 .ConvertUsing<NoteEntitiesToNotesForPageConverter>();
 
             CreateMap<Category, CategoryItemDto>();
+            CreateMap<Category, CategoryDropdownItemDto>();
             CreateMap<CategoryCreateEditDto, Category>();
 
             CreateMap<Product, ProductItemDto>()
                 .ForMember(dest => dest.CategoryName,
                 o => o.MapFrom(src => src.Category.Name));
+            CreateMap<Product, ProductDropdownItemDto>();
 
             CreateMap<ProductCreateEditDto, Product>();
         }
