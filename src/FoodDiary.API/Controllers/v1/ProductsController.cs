@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Net;
 using System.Threading;
@@ -34,25 +34,18 @@ namespace FoodDiary.API.Controllers.v1
         }
 
         [HttpGet]
-        [ProducesResponseType(typeof(ProductsPagedListDto), (int)HttpStatusCode.OK)]
+        [ProducesResponseType(typeof(IEnumerable<ProductItemDto>), (int)HttpStatusCode.OK)]
         [ProducesResponseType(typeof(ModelStateDictionary), (int)HttpStatusCode.BadRequest)]
-        public async Task<IActionResult> SearchProducts([FromQuery] ProductsSearchRequestDto searchRequest, CancellationToken cancellationToken)
+        public async Task<IActionResult> GetProductsList([FromQuery] ProductsSearchRequestDto searchRequest, CancellationToken cancellationToken)
         {
             if (!ModelState.IsValid)
             {
                 return BadRequest(ModelState);
             }
 
-            var totalProductsCount = await _productService.CountAllProductsAsync(cancellationToken);
             var foundProducts = await _productService.SearchProductsAsync(searchRequest, cancellationToken);
-
-            var productsResult = new ProductsPagedListDto()
-            {
-                SelectedPageIndex = searchRequest.PageIndex,
-                TotalPagesCount = PaginationHelper.GetTotalPagesCount(totalProductsCount, searchRequest.PageSize),
-                Products = _mapper.Map<IEnumerable<ProductItemDto>>(foundProducts)
-            };
-            return Ok(productsResult);
+            var productsListResponse = _mapper.Map<IEnumerable<ProductItemDto>>(foundProducts);
+            return Ok(productsListResponse);
         }
 
         [HttpPost]
@@ -77,18 +70,18 @@ namespace FoodDiary.API.Controllers.v1
             return Ok();
         }
 
-        [HttpPut]
+        [HttpPut("{id}")]
         [ProducesResponseType((int)HttpStatusCode.OK)]
         [ProducesResponseType(typeof(ModelStateDictionary), (int)HttpStatusCode.BadRequest)]
         [ProducesResponseType((int)HttpStatusCode.NotFound)]
-        public async Task<IActionResult> EditProduct([FromBody] ProductCreateEditDto productData, CancellationToken cancellationToken)
+        public async Task<IActionResult> EditProduct([FromRoute] int id, [FromBody] ProductCreateEditDto productData, CancellationToken cancellationToken)
         {
             if (!ModelState.IsValid)
             {
                 return BadRequest(ModelState);
             }
 
-            var originalProduct = await _productService.GetProductByIdAsync(productData.Id, cancellationToken);
+            var originalProduct = await _productService.GetProductByIdAsync(id, cancellationToken);
             if (originalProduct == null)
             {
                 return NotFound();
