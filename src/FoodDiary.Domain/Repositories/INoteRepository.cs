@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -18,8 +18,6 @@ namespace FoodDiary.Domain.Repositories
 
         Task<Note> GetByIdAsync(int id, CancellationToken cancellationToken);
 
-        Task<IEnumerable<Note>> GetByPageIdAsync(int pageId, CancellationToken cancellationToken);
-
         Note Create(Note note);
 
         Note Update(Note note);
@@ -31,5 +29,7 @@ namespace FoodDiary.Domain.Repositories
         void DeleteRange(IEnumerable<Note> notes);
 
         Task SaveChangesAsync(CancellationToken cancellationToken);
+
+        IQueryable<Note> LoadProduct(IQueryable<Note> query);
     }
 }
