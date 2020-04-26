@@ -4,7 +4,6 @@ using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
 using AutoMapper;
-using FoodDiary.API.Helpers;
 using FoodDiary.Domain.Dtos;
 using FoodDiary.Domain.Entities;
 using FoodDiary.Domain.Services;
@@ -34,18 +33,26 @@ namespace FoodDiary.API.Controllers.v1
         }
 
         [HttpGet]
-        [ProducesResponseType(typeof(IEnumerable<ProductItemDto>), (int)HttpStatusCode.OK)]
+        [ProducesResponseType(typeof(ProductsSearchResultDto), (int)HttpStatusCode.OK)]
         [ProducesResponseType(typeof(ModelStateDictionary), (int)HttpStatusCode.BadRequest)]
-        public async Task<IActionResult> GetProductsList([FromQuery] ProductsSearchRequestDto searchRequest, CancellationToken cancellationToken)
+        public async Task<IActionResult> GetProducts([FromQuery] ProductsSearchRequestDto searchRequest, CancellationToken cancellationToken)
         {
             if (!ModelState.IsValid)
             {
                 return BadRequest(ModelState);
             }
 
+            var totalProductsCount = await _productService.CountAllProductsAsync(cancellationToken);
             var foundProducts = await _productService.SearchProductsAsync(searchRequest, cancellationToken);
-            var productsListResponse = _mapper.Map<IEnumerable<ProductItemDto>>(foundProducts);
-            return Ok(productsListResponse);
+            var productItemsResult = _mapper.Map<IEnumerable<ProductItemDto>>(foundProducts);
+
+            var productsPaginationResult = new ProductsSearchResultDto()
+            {
+                TotalProductsCount = totalProductsCount,
+                ProductItems = productItemsResult
+            };
+
+            return Ok(productsPaginationResult);
         }
 
         [HttpPost]
@@ -133,9 +140,9 @@ namespace FoodDiary.API.Controllers.v1
 
         [HttpGet("dropdown")]
         [ProducesResponseType(typeof(IEnumerable<ProductDropdownItemDto>), (int)HttpStatusCode.OK)]
-        public async Task<IActionResult> GetProductsDropdownList(CancellationToken cancellationToken)
+        public async Task<IActionResult> GetProductsDropdownList([FromQuery] ProductDropdownSearchRequestDto request, CancellationToken cancellationToken)
         {
-            var products = await _productService.GetProductsDropdownListAsync(cancellationToken);
+            var products = await _productService.GetProductsDropdownListAsync(request, cancellationToken);
             var productsDropdownListResponse = _mapper.Map<IEnumerable<ProductDropdownItemDto>>(products);
             return Ok(productsDropdownListResponse);
         }

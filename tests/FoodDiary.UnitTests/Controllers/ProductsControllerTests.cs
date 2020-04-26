@@ -51,37 +51,29 @@ namespace FoodDiary.UnitTests.Controllers
 
         public ProductsController ProductsController => new ProductsController(_loggerFactory, _mapper, _productServiceMock.Object);
 
-        [Theory]
-        [InlineData(1, 10, 100)]
-        [InlineData(2, 20, 100)]
-        public async void SearchProducts_ReturnsFilteredProductsWithPaginationInfo_WhenModelStateIsValid(
-            int pageIndex,
-            int pageSize,
-            int foundProductsCount)
+        [Fact]
+        public async void GetProducts_ReturnsFilteredProductsWithPaginationInfo_WhenModelStateIsValid()
         {
-            var searchRequest = _fixture.Build<ProductsSearchRequestDto>()
-                .With(r => r.PageNumber, pageIndex)
-                .With(r => r.PageSize, pageSize)
-                .Create();
-            var foundProducts = _fixture.CreateMany<Product>(foundProductsCount);
-            _productServiceMock.Setup(s => s.SearchProductsAsync(searchRequest, default))
-                .ReturnsAsync(foundProducts);
+            var searchRequest = _fixture.Create<ProductsSearchRequestDto>();
 
-            var result = await ProductsController.GetProductsList(searchRequest, default);
+            var result = await ProductsController.GetProducts(searchRequest, default);
 
+            _productServiceMock.Verify(s => s.CountAllProductsAsync(default), Times.Once);
             _productServiceMock.Verify(s => s.SearchProductsAsync(searchRequest, default), Times.Once);
             result.Should().BeOfType<OkObjectResult>();
         }
 
         [Fact]
-        public async void SearchProducts_ReturnsBadRequest_WhenModelStateIsInvalid()
+        public async void GetProducts_ReturnsBadRequest_WhenModelStateIsInvalid()
         {
             var searchRequest = _fixture.Create<ProductsSearchRequestDto>();
             var controller = ProductsController;
-            controller.ModelState.AddModelError("error", "error");
+            controller.ModelState.AddModelError(_fixture.Create<string>(), _fixture.Create<string>());
 
-            var result = await controller.GetProductsList(searchRequest, default);
+            var result = await controller.GetProducts(searchRequest, default);
 
+            _productServiceMock.Verify(s => s.CountAllProductsAsync(default), Times.Never);
+            _productServiceMock.Verify(s => s.SearchProductsAsync(searchRequest, default), Times.Never);
             result.Should().BeOfType<BadRequestObjectResult>();
         }
 
@@ -273,13 +265,14 @@ namespace FoodDiary.UnitTests.Controllers
         [Fact]
         public async void GetProductsDropdownList_ReturnsRequestedProducts()
         {
+            var request = _fixture.Create<ProductDropdownSearchRequestDto>();
             var expectedProducts = _fixture.CreateMany<Product>();
-            _productServiceMock.Setup(s => s.GetProductsDropdownListAsync(default))
+            _productServiceMock.Setup(s => s.GetProductsDropdownListAsync(request, default))
                 .ReturnsAsync(expectedProducts);
 
-            var result = await ProductsController.GetProductsDropdownList(default);
+            var result = await ProductsController.GetProductsDropdownList(request, default);
 
-            _productServiceMock.Verify(s => s.GetProductsDropdownListAsync(default), Times.Once);
+            _productServiceMock.Verify(s => s.GetProductsDropdownListAsync(request, default), Times.Once);
             result.Should().BeOfType<OkObjectResult>();
         }
     }
