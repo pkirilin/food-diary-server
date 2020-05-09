@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
@@ -13,9 +13,11 @@ namespace FoodDiary.Domain.Repositories
 
         IQueryable<Page> GetQueryWithoutTracking();
 
-        Task<List<Page>> GetListFromQuery(IQueryable<Page> pagesQuery, CancellationToken cancellationToken);
+        Task<IEnumerable<Page>> GetListFromQueryAsync(IQueryable<Page> pagesQuery, CancellationToken cancellationToken);
 
         IQueryable<Page> LoadNotesWithProducts(IQueryable<Page> pagesQuery);
+
+        IQueryable<Page> LoadNotesWithProductsAndCategories(IQueryable<Page> pagesQuery);
 
         Task<Page> GetByIdAsync(int id, CancellationToken cancellationToken);
 
