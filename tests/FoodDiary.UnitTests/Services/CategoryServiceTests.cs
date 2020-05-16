@@ -2,14 +2,15 @@
 using AutoFixture;
 using AutoFixture.Xunit2;
 using FluentAssertions;
-using FoodDiary.Domain.Dtos;
+using FoodDiary.API.Services;
+using FoodDiary.API.Services.Implementation;
+using FoodDiary.Domain.Abstractions;
 using FoodDiary.Domain.Entities;
 using FoodDiary.Domain.Repositories;
-using FoodDiary.Domain.Services;
-using FoodDiary.Infrastructure.Services;
 using FoodDiary.UnitTests.Customizations;
 using Moq;
 using Xunit;
+using FoodDiary.API.Requests;
 
 namespace FoodDiary.UnitTests.Services
 {
@@ -23,6 +24,9 @@ namespace FoodDiary.UnitTests.Services
         {
             _categoryRepositoryMock = new Mock<ICategoryRepository>();
             _fixture = SetupFixture();
+
+            _categoryRepositoryMock.SetupGet(r => r.UnitOfWork)
+                .Returns(new Mock<IUnitOfWork>().Object);
         }
 
         public ICategoryService CategoryService => new CategoryService(_categoryRepositoryMock.Object);
@@ -37,7 +41,7 @@ namespace FoodDiary.UnitTests.Services
         [Fact]
         public async void GetCategories_ReturnsAllCategories()
         {
-            var expectedCategories = _fixture.CreateMany<Category>();
+            var expectedCategories = _fixture.CreateMany<Category>().ToList();
             _categoryRepositoryMock.Setup(r => r.GetListFromQueryAsync(It.IsNotNull<IQueryable<Category>>(), default))
                 .ReturnsAsync(expectedCategories);
 
@@ -72,7 +76,7 @@ namespace FoodDiary.UnitTests.Services
             var result = await CategoryService.CreateCategoryAsync(category, default);
 
             _categoryRepositoryMock.Verify(r => r.Create(category), Times.Once);
-            _categoryRepositoryMock.Verify(r => r.SaveChangesAsync(default), Times.Once);
+            _categoryRepositoryMock.Verify(r => r.UnitOfWork.SaveChangesAsync(default), Times.Once);
             result.Should().Be(category);
         }
 
@@ -80,63 +84,56 @@ namespace FoodDiary.UnitTests.Services
         public async void EditCategory_UpdatesCategoryWithoutErrors()
         {
             var category = _fixture.Create<Category>();
-            _categoryRepositoryMock.Setup(r => r.Update(category))
-                .Returns(category);
 
-            var result = await CategoryService.EditCategoryAsync(category, default);
+            await CategoryService.EditCategoryAsync(category, default);
 
             _categoryRepositoryMock.Verify(r => r.Update(category), Times.Once);
-            _categoryRepositoryMock.Verify(r => r.SaveChangesAsync(default), Times.Once);
-            result.Should().Be(category);
+            _categoryRepositoryMock.Verify(r => r.UnitOfWork.SaveChangesAsync(default), Times.Once);
         }
 
         [Fact]
         public async void DeleteCategory_DeletesCategoryWithoutErrors()
         {
             var category = _fixture.Create<Category>();
-            _categoryRepositoryMock.Setup(r => r.Delete(category))
-                .Returns(category);
 
-            var result = await CategoryService.DeleteCategoryAsync(category, default);
+            await CategoryService.DeleteCategoryAsync(category, default);
 
             _categoryRepositoryMock.Verify(r => r.Delete(category), Times.Once);
-            _categoryRepositoryMock.Verify(r => r.SaveChangesAsync(default), Times.Once);
-            result.Should().Be(category);
+            _categoryRepositoryMock.Verify(r => r.UnitOfWork.SaveChangesAsync(default), Times.Once);
         }
 
         [Fact]
-        public async void ValidateCategory_ReturnsFalse_WhenCategoryHasDuplicateName()
+        public async void IsCategoryExists_ReturnsTrue_WhenCategoryHasDuplicateName()
         {
-            var categoryInfo = _fixture.Create<CategoryCreateEditDto>();
-            _categoryRepositoryMock.Setup(r => r.IsDuplicateAsync(categoryInfo.Name, default))
-                .ReturnsAsync(true);
+            var categoryInfo = _fixture.Create<CategoryCreateEditRequest>();
+            var categoriesWithTheSameName = _fixture.CreateMany<Category>().ToList();
+            _categoryRepositoryMock.Setup(r => r.GetListFromQueryAsync(It.IsNotNull<IQueryable<Category>>(), default))
+                .ReturnsAsync(categoriesWithTheSameName);
 
-            var result = await CategoryService.ValidateCategoryAsync(categoryInfo, default);
+            var result = await CategoryService.IsCategoryExistsAsync(categoryInfo.Name, default);
 
-            _categoryRepositoryMock.Verify(r => r.IsDuplicateAsync(categoryInfo.Name, default), Times.Once);
-            result.IsValid.Should().BeFalse();
+            _categoryRepositoryMock.Verify(r => r.GetQueryWithoutTracking(), Times.Once);
+            _categoryRepositoryMock.Verify(r => r.GetListFromQueryAsync(It.IsNotNull<IQueryable<Category>>(), default), Times.Once);
+            result.Should().BeTrue();
         }
 
 
         [Theory]
-        [InlineData("Some name", "Some new name", true)]
+        [InlineData("Some name", "Some new name", false)]
         [InlineData("Some name", "Some name", true)]
         public void IsEditedCategoryValid_ReturnsTrue_WhenCategoryIsValidAfterItWasEdited(
             string oldCategoryName,
             string newCategoryName,
-            bool isValid)
+            bool isCategoryExists)
         {
             var originalCategory = _fixture.Build<Category>()
                 .With(c => c.Name, oldCategoryName)
                 .Create();
-            var editedCategoryData = _fixture.Build<CategoryCreateEditDto>()
+            var editedCategoryData = _fixture.Build<CategoryCreateEditRequest>()
                 .With(c => c.Name, newCategoryName)
                 .Create();
-            var validationResult = _fixture.Build<ValidationResultDto>()
-                .With(r => r.IsValid, isValid)
-                .Create();
 
-            var result = CategoryService.IsEditedCategoryValid(editedCategoryData, originalCategory, validationResult);
+            var result = CategoryService.IsEditedCategoryValid(editedCategoryData, originalCategory, isCategoryExists);
 
             result.Should().BeTrue();
         }
@@ -151,7 +148,7 @@ namespace FoodDiary.UnitTests.Services
             var request = _fixture.Build<CategoryDropdownSearchRequest>()
                 .With(r => r.CategoryNameFilter, categoryFilterName)
                 .Create();
-            var expectedCategories = _fixture.CreateMany<Category>();
+            var expectedCategories = _fixture.CreateMany<Category>().ToList();
             _categoryRepositoryMock.Setup(r => r.GetListFromQueryAsync(It.IsNotNull<IQueryable<Category>>(), default))
                 .ReturnsAsync(expectedCategories);
 

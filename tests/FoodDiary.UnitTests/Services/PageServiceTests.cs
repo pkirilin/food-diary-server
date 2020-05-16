@@ -1,17 +1,18 @@
-using System.Linq;
+﻿using System.Linq;
 using AutoFixture;
 using FluentAssertions;
 using FoodDiary.Domain.Entities;
 using FoodDiary.Domain.Repositories;
-using FoodDiary.Domain.Services;
-using FoodDiary.Infrastructure.Services;
 using FoodDiary.UnitTests.Customizations;
 using Moq;
 using Xunit;
 using FoodDiary.Domain.Enums;
 using AutoFixture.Xunit2;
-using FoodDiary.Domain.Dtos;
 using System;
+using FoodDiary.Domain.Abstractions;
+using FoodDiary.API.Services;
+using FoodDiary.API.Services.Implementation;
+using FoodDiary.API.Requests;
 
 namespace FoodDiary.UnitTests.Services
 {
@@ -25,6 +26,9 @@ namespace FoodDiary.UnitTests.Services
         {
             _pageRepositoryMock = new Mock<IPageRepository>();
             _fixture = SetupFixture();
+
+            _pageRepositoryMock.SetupGet(r => r.UnitOfWork)
+                .Returns(new Mock<IUnitOfWork>().Object);
         }
 
         public IPageService PageService => new PageService(_pageRepositoryMock.Object);
@@ -41,7 +45,7 @@ namespace FoodDiary.UnitTests.Services
         [InlineAutoData(null)]
         public async void SearchPages_ReturnsRequestedPagesCount_DependingOnShowCount(int? showCount)
         {
-            var pageFilter = _fixture.Build<PageFilterDto>()
+            var pageFilter = _fixture.Build<PagesSearchRequest>()
                 .With(p => p.ShowCount, showCount)
                 .Create();
             var expectedPagesCount = pageFilter.ShowCount ?? 10;
@@ -66,7 +70,7 @@ namespace FoodDiary.UnitTests.Services
         [InlineData(SortOrder.Descending)]
         public async void SearchPages_ReturnsOrderedPages_DependingOnSortOrder(SortOrder sortOrder)
         {
-            var pageFilter = _fixture.Build<PageFilterDto>()
+            var pageFilter = _fixture.Build<PagesSearchRequest>()
                 .With(p => p.SortOrder, sortOrder)
                 .Create();
             var pages = _fixture.CreateMany<Page>().ToList();
@@ -129,12 +133,12 @@ namespace FoodDiary.UnitTests.Services
         public async void CreatePage_CreatesPageWithoutErrors()
         {
             var pageForCreate = _fixture.Create<Page>();
-            _pageRepositoryMock.Setup(r => r.CreateAsync(pageForCreate, default))
-                .ReturnsAsync(pageForCreate);
+            _pageRepositoryMock.Setup(r => r.Add(pageForCreate))
+                .Returns(pageForCreate);
 
             var result = await PageService.CreatePageAsync(pageForCreate, default);
 
-            _pageRepositoryMock.Verify(r => r.CreateAsync(pageForCreate, default), Times.Once);
+            _pageRepositoryMock.Verify(r => r.Add(pageForCreate), Times.Once);
             result.Should().Be(pageForCreate);
         }
 
@@ -142,74 +146,67 @@ namespace FoodDiary.UnitTests.Services
         public async void EditPage_UpdatesPageWithoutErrors()
         {
             var pageForEdit = _fixture.Create<Page>();
-            _pageRepositoryMock.Setup(r => r.UpdateAsync(pageForEdit, default))
-                .ReturnsAsync(pageForEdit);
 
-            var result = await PageService.EditPageAsync(pageForEdit, default);
+            await PageService.EditPageAsync(pageForEdit, default);
 
-            _pageRepositoryMock.Verify(r => r.UpdateAsync(pageForEdit, default), Times.Once);
-            result.Should().Be(pageForEdit);
+            _pageRepositoryMock.Verify(r => r.Update(pageForEdit), Times.Once);
+            _pageRepositoryMock.Verify(r => r.UnitOfWork.SaveChangesAsync(default), Times.Once);
         }
 
         [Fact]
         public async void DeletePage_DeletesPageWithoutErrors()
         {
             var pageForDelete = _fixture.Create<Page>();
-            _pageRepositoryMock.Setup(r => r.DeleteAsync(pageForDelete, default))
-                .ReturnsAsync(pageForDelete);
 
-            var result = await PageService.DeletePageAsync(pageForDelete, default);
+            await PageService.DeletePageAsync(pageForDelete, default);
 
-            _pageRepositoryMock.Verify(r => r.DeleteAsync(pageForDelete, default), Times.Once);
-            result.Should().Be(pageForDelete);
+            _pageRepositoryMock.Verify(r => r.Delete(pageForDelete), Times.Once);
+            _pageRepositoryMock.Verify(r => r.UnitOfWork.SaveChangesAsync(default), Times.Once);
         }
 
         [Fact]
         public async void BatchDeletePages_DeletesPagesWithoutErrors()
         {
             var pagesForBatchDelete = _fixture.CreateMany<Page>().ToList();
-            _pageRepositoryMock.Setup(r => r.DeleteRangeAsync(pagesForBatchDelete, default))
-                .ReturnsAsync(pagesForBatchDelete);
 
-            var result = await PageService.BatchDeletePagesAsync(pagesForBatchDelete, default);
+            await PageService.BatchDeletePagesAsync(pagesForBatchDelete, default);
 
-            _pageRepositoryMock.Verify(r => r.DeleteRangeAsync(pagesForBatchDelete, default), Times.Once);
-            result.Should().Contain(pagesForBatchDelete);
+            _pageRepositoryMock.Verify(r => r.DeleteRange(pagesForBatchDelete), Times.Once);
+            _pageRepositoryMock.Verify(r => r.UnitOfWork.SaveChangesAsync(default), Times.Once);
         }
 
         [Fact]
-        public async void ValidatePageAsync_ReturnsFalse_WhenPageHasDuplicateDate()
+        public async void IsPageExists_ReturnsTrue_WhenPageWithTheSameDateExists()
         {
-            var createPageInfo = _fixture.Create<PageCreateEditDto>();
+            var createPageInfo = _fixture.Create<PageCreateEditRequest>();
+            var pagesWithTheSameDate = _fixture.CreateMany<Page>().ToList();
 
-            _pageRepositoryMock.Setup(r => r.IsDuplicateAsync(createPageInfo.Date, default))
-                .ReturnsAsync(true);
+            _pageRepositoryMock.Setup(r => r.GetListFromQueryAsync(It.IsNotNull<IQueryable<Page>>(), default))
+                .ReturnsAsync(pagesWithTheSameDate);
 
-            var result = await PageService.ValidatePageAsync(createPageInfo, default);
+            var result = await PageService.IsPageExistsAsync(createPageInfo.Date, default);
 
-            _pageRepositoryMock.Verify(r => r.IsDuplicateAsync(createPageInfo.Date, default), Times.Once);
-            result.IsValid.Should().BeFalse();
+            _pageRepositoryMock.Verify(r => r.GetQueryWithoutTracking(), Times.Once);
+            _pageRepositoryMock.Verify(r => r.GetListFromQueryAsync(It.IsNotNull<IQueryable<Page>>(), default), Times.Once);
+            result.Should().BeTrue();
         }
 
         [Theory]
-        [InlineData("2019-12-11", "2019-12-12", true)]
+        [InlineData("2019-12-11", "2019-12-12", false)]
         [InlineData("2019-12-11", "2019-12-11", true)]
         public void IsEditedPageValid_ReturnsTrue_WhenPageIsValidAfterItWasEdited(
             string oldPageDateStr,
             string newPageDateStr,
-            bool isValid)
+            bool isPageExists)
         {
             var originalPage = _fixture.Build<Page>()
                 .With(p => p.Date, DateTime.Parse(oldPageDateStr))
                 .Create();
-            var editedPageData = _fixture.Build<PageCreateEditDto>()
+            var editedPageData = _fixture.Build<PageCreateEditRequest>()
                 .With(p => p.Date, DateTime.Parse(newPageDateStr))
                 .Create();
-            var validationResult = _fixture.Build<ValidationResultDto>()
-                .With(r => r.IsValid, isValid)
-                .Create();
 
-            var result = PageService.IsEditedPageValid(editedPageData, originalPage, validationResult);
+            var result = PageService.IsEditedPageValid(editedPageData, originalPage, isPageExists);
 
             result.Should().BeTrue();
         }

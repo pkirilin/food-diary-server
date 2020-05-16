@@ -4,12 +4,12 @@ using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
 using AutoMapper;
-using FoodDiary.Domain.Dtos;
+using FoodDiary.API.Services;
+using FoodDiary.API.Dtos;
 using FoodDiary.Domain.Entities;
-using FoodDiary.Domain.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
-using Microsoft.Extensions.Logging;
+using FoodDiary.API.Requests;
 
 namespace FoodDiary.API.Controllers.v1
 {
@@ -18,33 +18,28 @@ namespace FoodDiary.API.Controllers.v1
     [ApiExplorerSettings(GroupName = "v1")]
     public class CategoriesController : ControllerBase
     {
-        private readonly ILogger<CategoriesController> _logger;
         private readonly IMapper _mapper;
         private readonly ICategoryService _categoryService;
 
-        public CategoriesController(
-            ILoggerFactory loggerFactory,
-            IMapper mapper,
-            ICategoryService categoryService)
+        public CategoriesController(IMapper mapper, ICategoryService categoryService)
         {
-            _logger = loggerFactory?.CreateLogger<CategoriesController>() ?? throw new ArgumentNullException(nameof(loggerFactory));
             _mapper = mapper ?? throw new ArgumentNullException(nameof(mapper));
             _categoryService = categoryService ?? throw new ArgumentNullException(nameof(categoryService));
         }
 
         [HttpGet]
-        [ProducesResponseType(typeof(List<CategoryItemDto>), (int)HttpStatusCode.OK)]
+        [ProducesResponseType(typeof(IEnumerable<CategoryItemDto>), (int)HttpStatusCode.OK)]
         public async Task<IActionResult> GetCategories(CancellationToken cancellationToken)
         {
             var categories = await _categoryService.GetCategoriesAsync(cancellationToken);
-            var categoriesListResponse = _mapper.Map<List<CategoryItemDto>>(categories);
+            var categoriesListResponse = _mapper.Map<IEnumerable<CategoryItemDto>>(categories);
             return Ok(categoriesListResponse);
         }
 
         [HttpPost]
         [ProducesResponseType((int)HttpStatusCode.OK)]
         [ProducesResponseType(typeof(ModelStateDictionary), (int)HttpStatusCode.BadRequest)]
-        public async Task<IActionResult> CreateCategory([FromBody] CategoryCreateEditDto newCateroryInfo, CancellationToken cancellationToken)
+        public async Task<IActionResult> CreateCategory([FromBody] CategoryCreateEditRequest newCateroryInfo, CancellationToken cancellationToken)
         {
             if (!ModelState.IsValid)
             {
@@ -53,10 +48,9 @@ namespace FoodDiary.API.Controllers.v1
 
             var category = _mapper.Map<Category>(newCateroryInfo);
 
-            var categoryValidationResult = await _categoryService.ValidateCategoryAsync(newCateroryInfo, cancellationToken);
-            if (!categoryValidationResult.IsValid)
+            if (await _categoryService.IsCategoryExistsAsync(newCateroryInfo.Name, cancellationToken))
             {
-                ModelState.AddModelError(categoryValidationResult.ErrorKey, categoryValidationResult.ErrorMessage);
+                ModelState.AddModelError(nameof(newCateroryInfo.Name), $"Category with the name '{newCateroryInfo.Name}' already exists");
                 return BadRequest(ModelState);
             }
 
@@ -68,7 +62,7 @@ namespace FoodDiary.API.Controllers.v1
         [ProducesResponseType((int)HttpStatusCode.OK)]
         [ProducesResponseType(typeof(ModelStateDictionary), (int)HttpStatusCode.BadRequest)]
         [ProducesResponseType((int)HttpStatusCode.NotFound)]
-        public async Task<IActionResult> EditCategory([FromRoute] int id, [FromBody] CategoryCreateEditDto updatedCategoryInfo, CancellationToken cancellationToken)
+        public async Task<IActionResult> EditCategory([FromRoute] int id, [FromBody] CategoryCreateEditRequest updatedCategoryInfo, CancellationToken cancellationToken)
         {
             if (!ModelState.IsValid)
             {
@@ -80,10 +74,11 @@ namespace FoodDiary.API.Controllers.v1
             {
                 return NotFound();
             }
-            var categoryValidationResult = await _categoryService.ValidateCategoryAsync(updatedCategoryInfo, cancellationToken);
-            if (!_categoryService.IsEditedCategoryValid(updatedCategoryInfo, originalCategory, categoryValidationResult))
+
+            var isCategoryExists = await _categoryService.IsCategoryExistsAsync(updatedCategoryInfo.Name, cancellationToken);
+            if (!_categoryService.IsEditedCategoryValid(updatedCategoryInfo, originalCategory, isCategoryExists))
             {
-                ModelState.AddModelError(categoryValidationResult.ErrorKey, categoryValidationResult.ErrorMessage);
+                ModelState.AddModelError(nameof(updatedCategoryInfo.Name), $"Category with the name '{updatedCategoryInfo.Name}' already exists");
                 return BadRequest(ModelState);
             }
 

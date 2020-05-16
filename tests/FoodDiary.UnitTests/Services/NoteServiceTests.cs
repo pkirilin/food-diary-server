@@ -2,15 +2,16 @@
 using AutoFixture;
 using AutoFixture.Xunit2;
 using FluentAssertions;
-using FoodDiary.Domain.Dtos;
+using FoodDiary.API.Services;
+using FoodDiary.API.Services.Implementation;
+using FoodDiary.Domain.Abstractions;
 using FoodDiary.Domain.Entities;
 using FoodDiary.Domain.Enums;
 using FoodDiary.Domain.Repositories;
-using FoodDiary.Domain.Services;
-using FoodDiary.Infrastructure.Services;
 using FoodDiary.UnitTests.Customizations;
 using Moq;
 using Xunit;
+using FoodDiary.API.Requests;
 
 namespace FoodDiary.UnitTests.Services
 {
@@ -27,6 +28,12 @@ namespace FoodDiary.UnitTests.Services
             _productRepositoryMock = new Mock<IProductRepository>();
             _notesOrderServiceMock = new Mock<INotesOrderService>();
             _fixture = SetupFixture();
+
+            var unitOfWorkMock = new Mock<IUnitOfWork>();
+            _noteRepositoryMock.SetupGet(r => r.UnitOfWork)
+                .Returns(unitOfWorkMock.Object);
+            _productRepositoryMock.SetupGet(r => r.UnitOfWork)
+                .Returns(unitOfWorkMock.Object);
         }
 
         private IFixture SetupFixture()
@@ -61,7 +68,7 @@ namespace FoodDiary.UnitTests.Services
         [InlineAutoData(1, MealType.Breakfast)]
         public async void SearchNotesAsync_ReturnsNotesForRequestedParameters(int pageId, MealType? mealType)
         {
-            var request = _fixture.Build<NotesSearchRequestDto>()
+            var request = _fixture.Build<NotesSearchRequest>()
                 .With(r => r.PageId, pageId)
                 .With(r => r.MealType, mealType)
                 .Create();
@@ -94,17 +101,17 @@ namespace FoodDiary.UnitTests.Services
         }
 
         [Fact]
-        public async void ValidateNoteDataAsync_ReturnsTrue_WhenNoteDataIsValid()
+        public async void IsNoteProductExists_ReturnsTrue_WhenNoteDataIsValid()
         {
-            var noteData = _fixture.Create<NoteCreateEditDto>();
+            var noteData = _fixture.Create<NoteCreateEditRequest>();
             var productForNote = _fixture.Create<Product>();
             _productRepositoryMock.Setup(r => r.GetByIdAsync(noteData.ProductId, default))
                 .ReturnsAsync(productForNote);
 
-            var result = await NoteService.ValidateNoteDataAsync(noteData, default);
+            var result = await NoteService.IsNoteProductExistsAsync(noteData.ProductId, default);
 
             _productRepositoryMock.Verify(r => r.GetByIdAsync(noteData.ProductId, default), Times.Once);
-            result.IsValid.Should().BeTrue();
+            result.Should().BeTrue();
         }
 
         [Fact]
@@ -116,9 +123,9 @@ namespace FoodDiary.UnitTests.Services
 
             var result = await NoteService.CreateNoteAsync(note, default);
 
-            _notesOrderServiceMock.Verify(s => s.GetOrderForNewNoteAsync(note, default), Times.Once);
+            _notesOrderServiceMock.Verify(s => s.GetOrderForNewNoteAsync(note.PageId, note.MealType, default), Times.Once);
             _noteRepositoryMock.Verify(r => r.Create(note), Times.Once);
-            _noteRepositoryMock.Verify(r => r.SaveChangesAsync(default), Times.Once);
+            _noteRepositoryMock.Verify(r => r.UnitOfWork.SaveChangesAsync(default), Times.Once);
             result.Should().Be(note);
         }
 
@@ -126,38 +133,32 @@ namespace FoodDiary.UnitTests.Services
         public async void EditNoteAsync_UpdatesNoteWithoutErrors()
         {
             var note = _fixture.Create<Note>();
-            _noteRepositoryMock.Setup(r => r.Update(note))
-                .Returns(note);
 
-            var result = await NoteService.EditNoteAsync(note, default);
+            await NoteService.EditNoteAsync(note, default);
 
             _noteRepositoryMock.Verify(r => r.Update(note), Times.Once);
-            _noteRepositoryMock.Verify(r => r.SaveChangesAsync(default), Times.Once);
-            result.Should().Be(note);
+            _noteRepositoryMock.Verify(r => r.UnitOfWork.SaveChangesAsync(default), Times.Once);
         }
 
         [Fact]
         public async void DeleteNoteAsync_DeletesNoteWithoutErrors()
         {
             var note = _fixture.Create<Note>();
-            _noteRepositoryMock.Setup(r => r.Delete(note))
-                .Returns(note);
 
-            var result = await NoteService.DeleteNoteAsync(note, default);
+            await NoteService.DeleteNoteAsync(note, default);
 
             _notesOrderServiceMock.Verify(s => s.ReorderNotesOnDeleteAsync(note, default), Times.Once);
             _noteRepositoryMock.Verify(r => r.Delete(note), Times.Once);
-            _noteRepositoryMock.Verify(r => r.SaveChangesAsync(default), Times.Once);
-            result.Should().Be(note);
+            _noteRepositoryMock.Verify(r => r.UnitOfWork.SaveChangesAsync(default), Times.Once);
         }
 
         [Fact]
-        public void AllNotesFetched_ReturnsTrue_WhenFetchedNotesContainsAllRequestedIds()
+        public void AreAllNotesFetched_ReturnsTrue_WhenFetchedNotesContainsAllRequestedIds()
         {
             var fetchedNotes = _fixture.CreateMany<Note>();
             var requestedIds = fetchedNotes.Select(n => n.Id);
 
-            var result = NoteService.AllNotesFetched(requestedIds, fetchedNotes);
+            var result = NoteService.AreAllNotesFetched(requestedIds, fetchedNotes);
 
             result.Should().BeTrue();
         }
@@ -171,7 +172,7 @@ namespace FoodDiary.UnitTests.Services
 
             _notesOrderServiceMock.Verify(s => s.ReorderNotesOnDeleteRangeAsync(notesForDelete, default), Times.Once);
             _noteRepositoryMock.Verify(r => r.DeleteRange(notesForDelete), Times.Once);
-            _noteRepositoryMock.Verify(r => r.SaveChangesAsync(default), Times.Once);
+            _noteRepositoryMock.Verify(r => r.UnitOfWork.SaveChangesAsync(default), Times.Once);
         }
 
         [Theory]
@@ -181,19 +182,18 @@ namespace FoodDiary.UnitTests.Services
         [InlineData(2, 0)]
         [InlineData(2, 1)]
         [InlineData(2, 2)]
-        public async void NoteCanBeMoved_ReturnsTrue_WhenRequestedPositionIsInAllowedRange(int expectedMaxDisplayOrder, int requestedPosition)
+        public async void CanNoteBeMoved_ReturnsTrue_WhenRequestedPositionIsInAllowedRange(int expectedMaxDisplayOrder, int requestedPosition)
         {
             var noteForMove = _fixture.Create<Note>();
-            var moveRequest = _fixture.Build<NoteMoveRequestDto>()
+            var moveRequest = _fixture.Build<NoteMoveRequest>()
                 .With(n => n.Position, requestedPosition)
                 .Create();
-            _noteRepositoryMock.Setup(r => r.GetMaxDisplayOrderFromQueryAsync(It.IsAny<IQueryable<Note>>(), default))
+            _notesOrderServiceMock.Setup(s => s.GetOrderForNewNoteAsync(noteForMove.PageId, moveRequest.DestMeal, default))
                 .ReturnsAsync(expectedMaxDisplayOrder);
 
-            var result = await NoteService.NoteCanBeMovedAsync(noteForMove, moveRequest, default);
+            var result = await NoteService.CanNoteBeMovedAsync(noteForMove, moveRequest, default);
 
-            _noteRepositoryMock.Verify(r => r.GetQueryWithoutTracking(), Times.Once);
-            _noteRepositoryMock.Verify(r => r.GetMaxDisplayOrderFromQueryAsync(It.IsAny<IQueryable<Note>>(), default), Times.Once);
+            _notesOrderServiceMock.Verify(s => s.GetOrderForNewNoteAsync(noteForMove.PageId, moveRequest.DestMeal, default), Times.Once);
             result.Should().BeTrue();
         }
 
@@ -201,17 +201,14 @@ namespace FoodDiary.UnitTests.Services
         public async void MoveNoteAsync_UpdatesNoteWithReordering()
         {
             var noteForMove = _fixture.Create<Note>();
-            var moveRequest = _fixture.Create<NoteMoveRequestDto>();
-            var movedNote = _fixture.Create<Note>();
-            _noteRepositoryMock.Setup(r => r.Update(noteForMove))
-                .Returns(movedNote);
+            var moveRequest = _fixture.Create<NoteMoveRequest>();
 
             var result = await NoteService.MoveNoteAsync(noteForMove, moveRequest, default);
 
             _notesOrderServiceMock.Verify(s => s.ReorderNotesOnMoveAsync(noteForMove, moveRequest, default), Times.Once);
             _noteRepositoryMock.Verify(r => r.Update(noteForMove), Times.Once);
-            _noteRepositoryMock.Verify(r => r.SaveChangesAsync(default), Times.Once);
-            result.Should().Be(movedNote);
+            _noteRepositoryMock.Verify(r => r.UnitOfWork.SaveChangesAsync(default), Times.Once);
+            result.Should().Be(noteForMove);
         }
     }
 }

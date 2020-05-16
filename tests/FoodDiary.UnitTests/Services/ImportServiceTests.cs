@@ -2,15 +2,16 @@
 using System.Linq;
 using System.Threading;
 using AutoFixture;
-using FoodDiary.Domain.Dtos;
+using FoodDiary.API.Services;
+using FoodDiary.API.Services.Implementation;
+using FoodDiary.Domain.Abstractions;
 using FoodDiary.Domain.Entities;
 using FoodDiary.Domain.Repositories;
-using FoodDiary.Domain.Services;
 using FoodDiary.Import;
-using FoodDiary.Infrastructure.Services;
 using FoodDiary.UnitTests.Customizations;
 using Moq;
 using Xunit;
+using FoodDiary.Import.Models;
 
 namespace FoodDiary.UnitTests.Services
 {
@@ -25,7 +26,7 @@ namespace FoodDiary.UnitTests.Services
 
         private readonly IFixture _fixture;
 
-        delegate void JsonImporterMockingCallback(PagesJsonObjectDto jsonObj, out List<Page> createdPages);
+        delegate void JsonImporterMockingCallback(PagesJsonObject jsonObj, out List<Page> createdPages);
 
         public ImportServiceTests()
         {
@@ -36,6 +37,9 @@ namespace FoodDiary.UnitTests.Services
             _importDataProviderMock = new Mock<IJsonImportDataProvider>();
             _jsonImporterMock = new Mock<IJsonImporter>();
             _fixture = SetupFixture();
+
+            _pageRepositoryMock.SetupGet(r => r.UnitOfWork)
+                .Returns(new Mock<IUnitOfWork>().Object);
         }
 
         IImportService Service => new ImportService(
@@ -56,9 +60,9 @@ namespace FoodDiary.UnitTests.Services
         [Fact]
         public async void RunPagesJsonImportAsync_ImportsEntities()
         {
-            var jsonObj = _fixture.Create<PagesJsonObjectDto>();
-            var pagesFromJson = _fixture.CreateMany<PageJsonItemDto>();
-            var notesFromJson = _fixture.CreateMany<NoteJsonItemDto>();
+            var jsonObj = _fixture.Create<PagesJsonObject>();
+            var pagesFromJson = _fixture.CreateMany<PageJsonItem>();
+            var notesFromJson = _fixture.CreateMany<NoteJsonItem>();
             var productNamesFromJson = _fixture.CreateMany<string>();
             var categoryNamesFromJson = _fixture.CreateMany<string>();
 
@@ -100,7 +104,7 @@ namespace FoodDiary.UnitTests.Services
                 .ReturnsAsync(existingCategoriesDictionary);
 
             _jsonImporterMock.Setup(i => i.Import(jsonObj, out createdPagesBeforeImport))
-                .Callback(new JsonImporterMockingCallback((PagesJsonObjectDto jsonObj, out List<Page> createdPages) =>
+                .Callback(new JsonImporterMockingCallback((PagesJsonObject jsonObj, out List<Page> createdPages) =>
                 {
                     createdPages = createdPagesAfterImport;
                 }));
@@ -127,8 +131,8 @@ namespace FoodDiary.UnitTests.Services
 
             _jsonImporterMock.Verify(i => i.Import(jsonObj, out createdPagesBeforeImport), Times.Once);
 
-            _pageRepositoryMock.Verify(r => r.CreateRange(createdPagesAfterImport), Times.Once);
-            _pageRepositoryMock.Verify(r => r.SaveChangesAsync(CancellationToken.None), Times.Once);
+            _pageRepositoryMock.Verify(r => r.AddRange(createdPagesAfterImport), Times.Once);
+            _pageRepositoryMock.Verify(r => r.UnitOfWork.SaveChangesAsync(CancellationToken.None), Times.Once);
         }
     }
 }

@@ -1,10 +1,10 @@
 ﻿using System;
 using System.IO;
+using FoodDiary.API.Services;
+using FoodDiary.API.Services.Implementation;
 using FoodDiary.Domain.Repositories;
-using FoodDiary.Domain.Services;
 using FoodDiary.Domain.Utils;
 using FoodDiary.Infrastructure.Repositories;
-using FoodDiary.Infrastructure.Services;
 using FoodDiary.Infrastructure.Utils;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.OpenApi.Models;
@@ -28,7 +28,7 @@ namespace FoodDiary.API.Extensions
             services.AddTransient<INotesOrderService, NotesOrderService>();
             services.AddTransient<ICategoryService, CategoryService>();
             services.AddTransient<IProductService, ProductService>();
-            services.AddTransient<ICaloriesService, CaloriesService>();
+            services.AddTransient<ICaloriesCalculator, CaloriesCalculator>();
             services.AddTransient<IExportService, ExportService>();
             services.AddTransient<IImportService, ImportService>();
         }

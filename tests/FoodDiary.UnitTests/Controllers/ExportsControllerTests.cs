@@ -7,15 +7,15 @@ using AutoMapper;
 using FluentAssertions;
 using FoodDiary.API;
 using FoodDiary.API.Controllers.v1;
-using FoodDiary.Domain.Dtos;
+using FoodDiary.API.Services;
 using FoodDiary.Domain.Entities;
-using FoodDiary.Domain.Services;
 using FoodDiary.PdfGenerator;
 using FoodDiary.UnitTests.Customizations;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.DependencyInjection;
 using Moq;
 using Xunit;
+using FoodDiary.API.Requests;
 
 namespace FoodDiary.UnitTests.Controllers
 {
@@ -60,7 +60,7 @@ namespace FoodDiary.UnitTests.Controllers
         [InlineData("2020-05-06", "2020-05-06")]
         public async void ExportPagesPdf_ReturnsExportFileContent_WhenStartDateLessThanOrEqualEndDate(string startDateStr, string endDateStr)
         {
-            var request = _fixture.Build<PagesExportRequestDto>()
+            var request = _fixture.Build<PagesExportRequest>()
                 .With(r => r.StartDate, DateTime.Parse(startDateStr))
                 .With(r => r.EndDate, DateTime.Parse(endDateStr))
                 .Create();
@@ -79,7 +79,7 @@ namespace FoodDiary.UnitTests.Controllers
         [InlineData("2020-05-07", "2020-05-06")]
         public async void ExportPagesPdf_ReturnsBadRequest_WhenStartDateGreaterThanEndDate(string startDateStr, string endDateStr)
         {
-            var request = _fixture.Build<PagesExportRequestDto>()
+            var request = _fixture.Build<PagesExportRequest>()
                 .With(r => r.StartDate, DateTime.Parse(startDateStr))
                 .With(r => r.EndDate, DateTime.Parse(endDateStr))
                 .Create();
@@ -96,7 +96,7 @@ namespace FoodDiary.UnitTests.Controllers
         [InlineData("2020-05-06", "2020-05-06")]
         public async void ExportPagesJson_ReturnsExportFileContent_WhenStartDateLessThanOrEqualEndDate(string startDateStr, string endDateStr)
         {
-            var request = _fixture.Build<PagesExportRequestDto>()
+            var request = _fixture.Build<PagesExportRequest>()
                 .With(r => r.StartDate, DateTime.Parse(startDateStr))
                 .With(r => r.EndDate, DateTime.Parse(endDateStr))
                 .Create();
@@ -114,7 +114,7 @@ namespace FoodDiary.UnitTests.Controllers
         [InlineData("2020-05-07", "2020-05-06")]
         public async void ExportPagesJson_ReturnsBadRequest_WhenStartDateGreaterThanEndDate(string startDateStr, string endDateStr)
         {
-            var request = _fixture.Build<PagesExportRequestDto>()
+            var request = _fixture.Build<PagesExportRequest>()
                 .With(r => r.StartDate, DateTime.Parse(startDateStr))
                 .With(r => r.EndDate, DateTime.Parse(endDateStr))
                 .Create();

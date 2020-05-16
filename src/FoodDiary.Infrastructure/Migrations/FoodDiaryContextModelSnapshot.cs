@@ -47,7 +47,7 @@ namespace FoodDiary.Infrastructure.Migrations
 
                     b.Property<int>("ProductId");
 
-                    b.Property<double>("ProductQuantity");
+                    b.Property<int>("ProductQuantity");
 
                     b.HasKey("Id");
 
@@ -78,7 +78,7 @@ namespace FoodDiary.Infrastructure.Migrations
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd();
 
-                    b.Property<double>("CaloriesCost");
+                    b.Property<int>("CaloriesCost");
 
                     b.Property<int>("CategoryId");
 

@@ -3,10 +3,10 @@ using System.Linq;
 using System.Threading;
 using AutoFixture;
 using FluentAssertions;
+using FoodDiary.API.Services;
+using FoodDiary.API.Services.Implementation;
 using FoodDiary.Domain.Entities;
 using FoodDiary.Domain.Repositories;
-using FoodDiary.Domain.Services;
-using FoodDiary.Infrastructure.Services;
 using FoodDiary.UnitTests.Customizations;
 using Moq;
 using Xunit;
@@ -40,7 +40,7 @@ namespace FoodDiary.UnitTests.Services
         {
             var startDate = _fixture.Create<DateTime>();
             var endDate = _fixture.Create<DateTime>();
-            var pagesForExport = _fixture.CreateMany<Page>();
+            var pagesForExport = _fixture.CreateMany<Page>().ToList();
             _pageRepositoryMock.Setup(r => r.GetListFromQueryAsync(It.IsNotNull<IQueryable<Page>>(), CancellationToken.None))
                 .ReturnsAsync(pagesForExport);
 
@@ -58,7 +58,7 @@ namespace FoodDiary.UnitTests.Services
         {
             var startDate = _fixture.Create<DateTime>();
             var endDate = _fixture.Create<DateTime>();
-            var pagesForExport = _fixture.CreateMany<Page>();
+            var pagesForExport = _fixture.CreateMany<Page>().ToList();
             _pageRepositoryMock.Setup(r => r.GetListFromQueryAsync(It.IsNotNull<IQueryable<Page>>(), CancellationToken.None))
                 .ReturnsAsync(pagesForExport);
 
