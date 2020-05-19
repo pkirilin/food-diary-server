@@ -1,14 +1,11 @@
-﻿using AutoFixture;
-using AutoFixture.Xunit2;
+﻿using AutoFixture.Xunit2;
 using FoodDiary.Import.UnitTests.Customizations;
-using FoodDiary.UnitTests.Customizations;
 
 namespace FoodDiary.Import.UnitTests.Attributes
 {
     class ImportNotExistingPageAutoDataAttribute : AutoDataAttribute
     {
-        public ImportNotExistingPageAutoDataAttribute() : base(() => new Fixture()
-            .Customize(new FixtureWithCircularReferencesCustomization())
+        public ImportNotExistingPageAutoDataAttribute() : base(() => Fixtures.Custom
             .Customize(new ExistingPagesDictionaryCustomization())
             .Customize(new JsonPageWithNotExistingDateCustomization()))
         {
@@ -17,8 +14,7 @@ namespace FoodDiary.Import.UnitTests.Attributes
 
     class ImportExistingPageAutoDataAttribute : AutoDataAttribute
     {
-        public ImportExistingPageAutoDataAttribute() : base(() => new Fixture()
-            .Customize(new FixtureWithCircularReferencesCustomization())
+        public ImportExistingPageAutoDataAttribute() : base(() => Fixtures.Custom
             .Customize(new ExistingPagesDictionaryCustomization())
             .Customize(new JsonPageWithExistingDateCustomization()))
         {
@@ -27,8 +23,7 @@ namespace FoodDiary.Import.UnitTests.Attributes
 
     class ImportNotExistingProductAutoDataAttribute : AutoDataAttribute
     {
-        public ImportNotExistingProductAutoDataAttribute() : base(() => new Fixture()
-            .Customize(new FixtureWithCircularReferencesCustomization())
+        public ImportNotExistingProductAutoDataAttribute() : base(() => Fixtures.Custom
             .Customize(new ExistingProductsDictionaryCustomization())
             .Customize(new JsonProductWithNotExistingNameCustomization()))
         {
@@ -37,8 +32,7 @@ namespace FoodDiary.Import.UnitTests.Attributes
 
     class ImportExistingProductAutoDataAttribute : AutoDataAttribute
     {
-        public ImportExistingProductAutoDataAttribute() : base(() => new Fixture()
-            .Customize(new FixtureWithCircularReferencesCustomization())
+        public ImportExistingProductAutoDataAttribute() : base(() => Fixtures.Custom
             .Customize(new ExistingProductsDictionaryCustomization())
             .Customize(new JsonProductWithExistingNameCustomization()))
         {
@@ -47,8 +41,7 @@ namespace FoodDiary.Import.UnitTests.Attributes
 
     class ImportNotExistingCategoryAutoDataAttribute : AutoDataAttribute
     {
-        public ImportNotExistingCategoryAutoDataAttribute() : base(() => new Fixture()
-            .Customize(new FixtureWithCircularReferencesCustomization())
+        public ImportNotExistingCategoryAutoDataAttribute() : base(() => Fixtures.Custom
             .Customize(new ExistingCategoriesDictionaryCustomization())
             .Customize(new JsonCategoryWithNotExistingNameCustomization()))
         {
@@ -57,8 +50,7 @@ namespace FoodDiary.Import.UnitTests.Attributes
 
     class ImportExistingCategoryAutoDataAttribute : AutoDataAttribute
     {
-        public ImportExistingCategoryAutoDataAttribute() : base(() => new Fixture()
-            .Customize(new FixtureWithCircularReferencesCustomization())
+        public ImportExistingCategoryAutoDataAttribute() : base(() => Fixtures.Custom
             .Customize(new ExistingCategoriesDictionaryCustomization())
             .Customize(new JsonCategoryWithExistingNameCustomization()))
         {

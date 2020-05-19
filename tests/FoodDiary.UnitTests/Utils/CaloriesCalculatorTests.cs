@@ -5,26 +5,17 @@ using FluentAssertions;
 using FoodDiary.Domain.Entities;
 using FoodDiary.Domain.Utils;
 using FoodDiary.Infrastructure.Utils;
-using FoodDiary.UnitTests.Attributes;
-using FoodDiary.UnitTests.Customizations;
+using FoodDiary.UnitTests.Utils.TestData;
 using Xunit;
 
 namespace FoodDiary.UnitTests.Utils
 {
     public class CaloriesCalculatorTests
     {
-        private readonly IFixture _fixture;
+        private readonly IFixture _fixture = Fixtures.Custom;
 
         public CaloriesCalculatorTests()
         {
-            _fixture = SetupFixture();
-        }
-
-        private IFixture SetupFixture()
-        {
-            var _fixture = new Fixture();
-            _fixture.Customize(new FixtureWithCircularReferencesCustomization());
-            return _fixture;
         }
 
         ICaloriesCalculator Sut => new CaloriesCalculator();
@@ -72,13 +63,12 @@ namespace FoodDiary.UnitTests.Utils
         }
 
         [Theory]
-        [NotesWithTotalCaloriesCountAutoData]
-        [EmptyNotesWithZeroTotalCaloriesCountAutoData]
-        public void Calculator_CalculatesCaloriesForMultipleNotes(List<Note> notes, int expectedResult)
+        [MemberData(nameof(CaloriesCalculatorTestData.CalculateForNotes), MemberType = typeof(CaloriesCalculatorTestData))]
+        public void Calculator_CalculatesCaloriesForMultipleNotes(List<Note> notes, int totalCaloriesCount)
         {
             var result = Sut.Calculate(notes);
 
-            result.Should().Be(expectedResult);
+            result.Should().Be(totalCaloriesCount);
         }
     }
 }
