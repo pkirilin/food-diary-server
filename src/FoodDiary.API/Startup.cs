@@ -3,6 +3,7 @@ using AutoMapper;
 using FoodDiary.API.Extensions;
 using FoodDiary.API.Middlewares;
 using FoodDiary.API.Options;
+using FoodDiary.Application.Extensions;
 using FoodDiary.Import.Extensions;
 using FoodDiary.Infrastructure;
 using FoodDiary.PdfGenerator.Extensions;
@@ -30,10 +31,10 @@ namespace FoodDiary.API
             services.AddDbContext<FoodDiaryContext>();
 
             services.AddRepositories();
-            services.AddAppServices();
             services.AddUtils();
             services.AddPagesPdfGenerator();
             services.AddPagesJsonImportServices();
+            services.AddApplicationDependencies();
 
             services.AddAutoMapper(Assembly.GetExecutingAssembly());
 
