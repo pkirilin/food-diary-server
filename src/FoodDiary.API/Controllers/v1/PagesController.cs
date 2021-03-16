@@ -10,7 +10,6 @@ using Microsoft.AspNetCore.Mvc;
 using FoodDiary.API.Requests;
 using MediatR;
 using FoodDiary.Application.Pages.Requests;
-using FoodDiary.Application.Enums;
 using System.Linq;
 
 namespace FoodDiary.API.Controllers.v1
@@ -54,11 +53,38 @@ namespace FoodDiary.API.Controllers.v1
                 pagesRequest.SortOrder,
                 pagesRequest.StartDate,
                 pagesRequest.EndDate,
-                PagesLoadRequestType.All);
+                pagesRequest.PageNumber,
+                pagesRequest.PageSize);
             
-            var filteredPages = await _mediator.Send(getPagesRequest, cancellationToken);
-            var pagesListResponse = _mapper.Map<IEnumerable<PageItemDto>>(filteredPages);
+            var pagesSearchResult = await _mediator.Send(getPagesRequest, cancellationToken);
+            var pagesListResponse = new PagesSearchResultDto()
+            {
+                PageItems = _mapper.Map<IEnumerable<PageItemDto>>(pagesSearchResult.FoundPages),
+                TotalPagesCount = pagesSearchResult.TotalPagesCount
+            };
             return Ok(pagesListResponse);
+        }
+
+        [HttpGet("{id}")]
+        [ProducesResponseType(typeof(PageContentDto), (int)HttpStatusCode.OK)]
+        [ProducesResponseType((int)HttpStatusCode.NotFound)]
+        public async Task<IActionResult> GetPageById([FromRoute] int id, CancellationToken cancellationToken)
+        {
+            var pageContent = await _mediator.Send(new GetPageContentByIdRequest(id), cancellationToken);
+
+            if (pageContent == null)
+            {
+                return NotFound();
+            }
+
+            var pageContentDto = new PageContentDto()
+            {
+                CurrentPage = _mapper.Map<PageDto>(pageContent.CurrentPage),
+                PreviousPage = _mapper.Map<PageDto>(pageContent.PreviousPage),
+                NextPage = _mapper.Map<PageDto>(pageContent.NextPage),
+            };
+            
+            return Ok(pageContentDto);
         }
 
         /// <summary>
